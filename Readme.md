@@ -242,6 +242,18 @@ npx expo start
    - Ingresa un `id_estudiante` o `email` registrado en `unab.estudiantes` para validar el acceso y comenzar a interactuar con el asistente académico.
 
 ---
+## Fotos Evidencias
+Para la visualizacion concreta de algunos momentos de el proceso de desarrollo, la carpeta "Evidencias/" guarda 23 imagenes varias del proceso.
+
+**Interfaz de la App**
+<img width="720" height="1600" alt="E18_InicioApp" src="https://github.com/user-attachments/assets/716fa380-e1ef-4cf5-bc24-a352b8613252" />
+
+**Interfaz del chat**
+<img width="720" height="1600" alt="E20_InterfazChat" src="https://github.com/user-attachments/assets/bb4e5142-cbbf-46a6-ae2f-d8d10d6b9e24" />
+
+**Conversacion de prueba**
+<img width="720" height="1600" alt="E21_ConsultasAcademicas" src="https://github.com/user-attachments/assets/628ac6f2-a768-44e8-8d80-ef2f2f8de8cb" />
+
 
 ## Contexto Académico
 **Universidad Autónoma de Bucaramanga (UNAB)**.
