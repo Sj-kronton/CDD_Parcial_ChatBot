@@ -37,6 +37,28 @@ Sistema inteligente de apoyo académico para estudiantes del programa de **Ingen
 
 ---
 
+## Pipeline de Ingesta RAG y Generación de Embeddings (NVIDIA NIM)
+
+Para alimentar la base de conocimiento institucional del agente (Reglamento Estudiantil de Pregrado, estructura del plan de estudios y documentación de Competencias Digitales - CCD), se implementó un pipeline automatizado en **n8n** (`UNAB - Ingesta RAG (NVIDIA NIM) - un archivo a la vez`) que procesa documentos Markdown desde Google Drive y almacena sus vectores en **Supabase (`pgvector`)**.
+
+### Arquitectura del Flujo de Ingesta
+
+```mermaid
+flowchart TD
+    A[Trigger Manual / Semanal Lunes 6:00 AM] --> B[Postgres: Preparar Tabla Vectorial<br/>CREATE TABLE + TRUNCATE unab.documentos_vectoriales_nvidia]
+    B --> C[Google Drive: Listar archivos en carpeta 'unab_rag']
+    C --> D[Filter: Filtrar solo archivos .md]
+    D --> E{Loop Over Items<br/>Procesamiento 1 archivo a la vez}
+    E -->|Siguiente archivo| F[Google Drive: Descargar binario .md]
+    F --> G[Code JS: Limpiar Markdown<br/>Elimina caracteres invisibles y saltos redundantes]
+    G --> H[Postgres PGVector Store<br/>Inserción en unab.documentos_vectoriales_nvidia]
+    I[Default Data Loader<br/>Metadato: fuente = nombre_archivo] -.-> H
+    J[Recursive Character Text Splitter<br/>Chunk Overlap: 150] -.-> I
+    K[Embeddings NVIDIA NIM<br/>Modelo: nvidia/nv-embedqa-e5-v5<br/>Dimensión: 1024] -.-> H
+    H --> L[Wait: Esperar 15s<br/>Control de Rate Limit API NVIDIA]
+    L --> E
+    E -->|Sin más archivos| M([Fin de la ingesta])
+```
 ---
 
 ## Guía de Implementación Paso a Paso
