@@ -37,23 +37,6 @@ Sistema inteligente de apoyo académico para estudiantes del programa de **Ingen
 
 ---
 
-## Estructura Sugerida del Repositorio
-
-```text
-├── mcp-server/                 # Servidor Python FastMCP desplegado en AWS EC2
-│   ├── server.py               # Definición de las 6 herramientas MCP y conexión a Supabase
-│   ├── requirements.txt        # Dependencias Python (mcp<2.0.0, supabase, python-dotenv)
-│   └── .env.example            # Plantilla de variables de entorno del servidor
-├── database/                   # Scripts SQL de esquema, vistas, permisos y correcciones
-│   └── setup_unab.sql          # Configuración de permisos del esquema 'unab' y catálogo CCD
-├── n8n/                        # Exportación JSON del workflow conversacional
-│   └── workflow_chatbot_unab.json
-└── UnabChat/                   # Aplicación móvil en Expo Go (React Native)
-    ├── app/                    # Pantallas (index.tsx: Login estudiante, chat.tsx: Asistente)
-    ├── lib/supabase.ts         # Cliente Supabase apuntando al esquema 'unab'
-    └── .env.example            # Variables públicas de Expo
-```
-
 ---
 
 ## Guía de Implementación Paso a Paso
