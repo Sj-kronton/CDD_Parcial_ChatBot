@@ -61,6 +61,31 @@ flowchart TD
 ```
 ---
 
+## Pipeline de Web Scraping de Noticias y Convocatorias UNAB
+
+Para mantener actualizado al estudiante sobre convocatorias, eventos y novedades institucionales sin intervención manual, se implementó un flujo automatizado en **n8n** (`UNAB - 04 Scraping Noticias y Convocatorias`) que extrae periódicamente las publicaciones del portal oficial de la UNAB y las almacena en **Supabase (`unab.noticias`)**, quedando disponibles de inmediato para la herramienta MCP `consultar_noticias_unab`.
+
+### Estructura del Flujo de Scraping
+
+- **Programación Cada 12 Horas (`Schedule Trigger`)**
+  - **Obtener HTML Noticias UNAB (`HTTP Request`)** — *GET `https://unab.edu.co/noticias/` (timeout: 15s)*
+    - **Extraer Títulos y Enlaces (`HTML Extract`)** — *Selectores CSS: `article h2 a, article h3 a, .entry-title a` y `article p, .entry-summary p, .entry-content p`*
+      - **Normalizar Registros (`Code JS`)** — *Sanitiza textos, valida URLs únicas, limita a 10 artículos y asigna fecha/fuente*
+        - **Guardar en Supabase (`Postgres`)** — *Inserción idempotente (`INSERT ... WHERE NOT EXISTS`) en `unab.noticias`*
+
+### Etapas del Pipeline
+
+1. **Ejecución Programada (`Schedule Trigger`):**
+   - Dispara automáticamente la recolección cada **12 horas** para capturar nuevas convocatorias o noticias publicadas durante el día.
+2. **Descarga del Portal Institucional (`HTTP Request`):**
+   - Realiza una petición `GET` hacia `https://unab.edu.co/noticias/` con un tiempo máximo de espera de 15 segundos para obtener el código fuente HTML de la página principal de noticias.
+3. **Extracción Estructurada (`HTML Extract`):**
+   - Parsea el DOM mediante selectores CSS para obtener en paralelo tres arreglos: títulos (`titulos`), enlaces absolutos mediante el atributo `href` (`enlaces`) y extractos descriptivos (`resumenes`).
+4. **Limpieza y Deduplicación en Memoria (`Normalizar Registros`):**
+   - Un nodo en JavaScript cruza los arreglos extraídos, colapsa espacios en blanco redundantes, descarta enlaces inválidos o duplicados dentro de la misma ejecución mediante un `Set`, recorta los resúmenes a un máximo de 500 caracteres y limita el lote a las **10 noticias más recientes**, asignando `Portal Noticias UNAB` como fuente y la fecha actual.
+5. **Persistencia Idempotente en PostgreSQL (`Guardar en Supabase`):**
+   - Ejecuta una sentencia `INSERT INTO unab.noticias (titulo, url, resumen, fuente, fecha_publicacion)` condicionada con `WHERE NOT EXISTS (SELECT 1 FROM unab.noticias WHERE url = ...)`, garantizando que las noticias previamente recolectadas no se dupliquen en la base de datos.
+
 ## Guía de Implementación Paso a Paso
 
 ### Paso 1: Configuración de Base de Datos en Supabase
