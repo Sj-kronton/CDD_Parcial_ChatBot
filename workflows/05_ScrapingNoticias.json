@@ -1,0 +1,153 @@
+{
+  "name": "UNAB - 04 Scraping Noticias y Convocatorias",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Programacion Cada 12 Horas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://unab.edu.co/noticias/",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Obtener HTML Noticias UNAB",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "titulos",
+              "cssSelector": "article h2 a, article h3 a, .entry-title a",
+              "returnArray": true
+            },
+            {
+              "key": "enlaces",
+              "cssSelector": "article h2 a, article h3 a, .entry-title a",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "resumenes",
+              "cssSelector": "article p, .entry-summary p, .entry-content p",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Extraer Titulos y Enlaces",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst titulos = Array.isArray(item.titulos) ? item.titulos : [];\nconst enlaces = Array.isArray(item.enlaces) ? item.enlaces : [];\nconst resumenes = Array.isArray(item.resumenes) ? item.resumenes : [];\n\nconst hoy = new Date().toISOString().split('T')[0];\nconst resultados = [];\nconst urlsVistas = new Set();\n\nfor (let i = 0; i < titulos.length; i++) {\n  const titulo = (titulos[i] || '').replace(/\\s+/g, ' ').trim();\n  const url = (enlaces[i] || '').trim();\n  const resumen = (resumenes[i] || 'Novedad publicada en el portal oficial de noticias de la UNAB.').replace(/\\s+/g, ' ').trim();\n\n  if (!titulo || !url || !url.startsWith('http') || urlsVistas.has(url)) {\n    continue;\n  }\n\n  urlsVistas.add(url);\n  resultados.push({\n    json: {\n      titulo: titulo,\n      url: url,\n      resumen: resumen.slice(0, 500),\n      fuente: 'Portal Noticias UNAB',\n      fecha_publicacion: hoy\n    }\n  });\n\n  if (resultados.length >= 10) break;\n}\n\nreturn resultados;"
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Normalizar Registros",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO unab.noticias (titulo, url, resumen, fuente, fecha_publicacion)\nSELECT '{{ $json.titulo.replace(/'/g, \"''\") }}',\n       '{{ $json.url.replace(/'/g, \"''\") }}',\n       '{{ $json.resumen.replace(/'/g, \"''\") }}',\n       '{{ $json.fuente }}',\n       '{{ $json.fecha_publicacion }}'::date\nWHERE NOT EXISTS (\n  SELECT 1 FROM unab.noticias WHERE url = '{{ $json.url.replace(/'/g, \"''\") }}'\n);",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Guardar en Supabase (unab.noticias)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Programacion Cada 12 Horas": {
+      "main": [
+        [
+          {
+            "node": "Obtener HTML Noticias UNAB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener HTML Noticias UNAB": {
+      "main": [
+        [
+          {
+            "node": "Extraer Titulos y Enlaces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Titulos y Enlaces": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Registros",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Registros": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Supabase (unab.noticias)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
