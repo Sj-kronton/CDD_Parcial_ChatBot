@@ -1,0 +1,248 @@
+{
+  "name": "MCP conexion N8N",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-unab",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f9faf796-7141-4723-9a4b-5c3da1658c01",
+      "name": "Webhook",
+      "webhookId": "0a46c7d5-027a-466a-8441-a4469497da09"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=ID del estudiante autenticado: {{ $json.body.id_estudiante }}\nPregunta del estudiante: {{ $json.body.mensaje }}",
+        "options": {
+          "systemMessage": "Eres el asistente académico oficial del programa de Ingeniería de Sistemas de la Universidad Autónoma de Bucaramanga (UNAB).\nTu objetivo es apoyar al estudiante con su matrícula, estado académico actual, proyección de semestres y recomendaciones según el Reglamento Estudiantil y la ruta de Competencias Digitales (CCD)[cite: 2, 4].\n\nREGLAS ESTRICTAS:\n1. Para consultar notas, créditos, PGA, estado de matrícula, materias pendientes, prerrequisitos o avance en Competencias Digitales de un estudiante, USA SIEMPRE las herramientas del servidor MCP pasando el id_estudiante proporcionado en el mensaje. Nunca inventes datos académicos.\n2. Para dudas sobre normas del Reglamento Estudiantil (prueba académica, estado condicional, cancelaciones, grados) o información general del CCD, consulta la base de conocimiento vectorial (RAG).\n3. Si las herramientas MCP devuelven 'alertas_reglamentarias', explícalas con claridad y empatía al estudiante, complementando con las normas del reglamento.\n4. Responde de forma clara, estructurada y directa, pensada para leerse cómodamente desde una pantalla de celular."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "5730022d-78cc-4b0a-81db-1dede0e553f1",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.4,
+      "position": [
+        240,
+        208
+      ],
+      "id": "edc494ca-98f1-4a58-bf8c-d6e77bfd8fcc",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "uT7tBiwpjOPdj3ep",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://sjcddn8n.duckdns.org:9000/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        512,
+        208
+      ],
+      "id": "5f64edb1-c0c2-4dd8-b2c1-1b69f0b5db90",
+      "name": "MCP Client"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Documentos vectoriales de supabase",
+        "tableName": {
+          "__rl": true,
+          "value": "documentos_vectoriales_nvidia",
+          "mode": "id"
+        },
+        "options": {
+          "queryName": "match_documentos_nvidia"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.4,
+      "position": [
+        288,
+        352
+      ],
+      "id": "75bb9078-ef2f-43d5-b190-e40587b6f242",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "MvVDnLpQm7sD2rS9",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"respuesta\": \"{{ $json.output }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        592,
+        0
+      ],
+      "id": "7dc55802-0740-4a5a-94bc-640b0131bfcc",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "modelName": "embed-multilingual-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        384,
+        560
+      ],
+      "id": "15703f9d-9ec3-4fd7-9105-397c8a9207c8",
+      "name": "Embeddings Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "sXwLoOg68PTIERqk",
+          "name": "Cohere account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        96,
+        208
+      ],
+      "id": "b92b9a4f-1606-4736-9a1d-fb2b06c7e029",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "bP9W8a9ZUC8UaSYo",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "068e5350-9ca8-490a-ac56-e6d89ff10a9d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "041adc6b80d5b61182d8385d7d7630df440e092f419acaea32b5e05320e1e674"
+  },
+  "nodeGroups": [],
+  "id": "YD2J9rAyhdo4Zsl6",
+  "tags": []
+}

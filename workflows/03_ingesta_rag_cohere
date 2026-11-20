@@ -1,0 +1,445 @@
+{
+  "name": "UNAB - Ingesta RAG (NVIDIA NIM) - un archivo a la vez",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Ingesta RAG UNAB (NVIDIA NIM)\n\n1. Abre 'Get files from folder' y elige TU carpeta de Drive.\n2. Asigna credenciales: Google Drive, Postgres (Supabase) y OpenAI API (con Base URL de NVIDIA: https://integrate.api.nvidia.com/v1).\n3. 'Preparar Tabla Vectorial' crea 'unab.documentos_vectoriales_nvidia' (vector 1024) y la VACIA en cada ejecucion.\n4. Tu tabla anterior de Gemini ('unab.documentos_vectoriales') queda intacta.",
+        "height": 300,
+        "width": 500,
+        "color": 4
+      },
+      "id": "af90b8ca-b71f-44ee-930d-811cf7432a3f",
+      "name": "Notas de Configuración",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "31eb6180-626b-4c12-9a6a-937f3f36a121",
+      "name": "Ejecutar Manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "f1e09830-c104-46ed-b207-83e931a329ba",
+      "name": "Programado (Semanal Lunes 6am)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;\nCREATE EXTENSION IF NOT EXISTS pgcrypto;\n\nCREATE TABLE IF NOT EXISTS unab.documentos_vectoriales_nvidia (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n  content text,\n  metadata jsonb,\n  embedding public.vector(1024)\n);\n\nCREATE INDEX IF NOT EXISTS idx_docvec_nvidia_metadata\n  ON unab.documentos_vectoriales_nvidia USING gin (metadata);\n\n-- Recarga completa en la nueva tabla NVIDIA (no toca unab.documentos_vectoriales)\nTRUNCATE TABLE unab.documentos_vectoriales_nvidia;",
+        "options": {}
+      },
+      "id": "52ab6173-9cb0-438e-ae65-268558b85ecc",
+      "name": "Preparar Tabla Vectorial",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "uT7tBiwpjOPdj3ep",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "1CUr0NaZe0qQzYihovf0PV-Ac-Ju9jx1y",
+            "mode": "list",
+            "cachedResultName": "unab_rag",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1CUr0NaZe0qQzYihovf0PV-Ac-Ju9jx1y"
+          }
+        },
+        "options": {}
+      },
+      "id": "a679df71-11eb-4da0-bd56-fb045d33ccc1",
+      "name": "Get files from folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        432,
+        480
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "4Ssa5KFTpVfsvP9W",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-mimetype-soportado",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": ".*\\.md$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "8d0d66a5-975b-476e-b443-c29652d07195",
+      "name": "Filtrar Solo Markdown (.md)",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        656,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "id": "d0628d5b-b455-45fe-a650-4b40bca65e2b",
+      "name": "Descargar Archivo Markdown",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        944,
+        480
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "4Ssa5KFTpVfsvP9W",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": "unab.documentos_vectoriales_nvidia",
+        "options": {
+          "columnNames": {
+            "values": {
+              "contentColumnName": "content"
+            }
+          }
+        }
+      },
+      "id": "307aaa4f-ba80-4e81-93f6-248c49bcd7b7",
+      "name": "Postgres PGVector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        480
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "uT7tBiwpjOPdj3ep",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "fuente",
+                "value": "={{ $('Descargar Archivo Markdown').item.json.name }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "c033022f-0507-4917-aa8a-acbecf9fbbf0",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "id": "f426eacd-3374-40eb-9f7c-5f23f64d9997",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nv-embedqa-e5-v5",
+        "options": {
+          "baseURL": "https://integrate.api.nvidia.com/v1"
+        }
+      },
+      "id": "b819f24a-91c2-4d18-9c31-7a42e81b9011",
+      "name": "Embeddings NVIDIA NIM",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "52449319-0b60-4be8-b21f-9b4abc288391",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        784,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nconst items = $input.all();\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const bin = item.binary?.data;\n  if (!bin) continue;\n\n  const buf = await this.helpers.getBinaryDataBuffer(i, 'data');\n  let text = buf.toString('utf8')\n    .replace(/[\\u200B-\\u200D\\uFEFF]/g, '')\n    .replace(/\\u00A0/g, ' ')\n    .replace(/\\r\\n/g, '\\n');\n\n  text = text\n    .split('\\n')\n    .map(l => (/[\\p{L}\\p{N}]/u.test(l) ? l.trimEnd() : ''))\n    .join('\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n\n  if (text.length === 0) continue;\n\n  const nuevo = await this.helpers.prepareBinaryData(\n    Buffer.from(text, 'utf8'),\n    bin.fileName || 'documento.md',\n    bin.mimeType || 'text/markdown'\n  );\n\n  out.push({\n    json: { ...item.json, caracteres_limpios: text.length },\n    binary: { data: nuevo },\n    pairedItem: { item: i }\n  });\n}\nreturn out;"
+      },
+      "id": "6bec30be-dbbd-4d44-8ebe-53589ed91b94",
+      "name": "Limpiar Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "id": "e5d953b7-a093-4580-8e64-a8b5b061ff5e",
+      "name": "Esperar 15s (cuota NVIDIA)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1504,
+        304
+      ],
+      "webhookId": "e8dce6f5-af9b-4928-9647-82030f8c65c9"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ejecutar Manualmente": {
+      "main": [
+        [
+          {
+            "node": "Preparar Tabla Vectorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Programado (Semanal Lunes 6am)": {
+      "main": [
+        [
+          {
+            "node": "Preparar Tabla Vectorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Tabla Vectorial": {
+      "main": [
+        [
+          {
+            "node": "Get files from folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get files from folder": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Solo Markdown (.md)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Solo Markdown (.md)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Archivo Markdown": {
+      "main": [
+        [
+          {
+            "node": "Limpiar Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings NVIDIA NIM": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Descargar Archivo Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar Markdown": {
+      "main": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres PGVector Store": {
+      "main": [
+        [
+          {
+            "node": "Esperar 15s (cuota NVIDIA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar 15s (cuota NVIDIA)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a91f4c12-8b3d-4e11-9c2a-7d1e5f8a3c10",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "041adc6b80d5b61182d8385d7d7630df440e092f419acaea32b5e05320e1e674"
+  },
+  "nodeGroups": [],
+  "tags": []
+}

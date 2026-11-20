@@ -1,0 +1,325 @@
+{
+  "name": "UNAB - Ingesta RAG (Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Ingesta RAG UNAB (Gemini)\n\n1. Abre 'Get files from folder' y elige TU carpeta de Drive.\n2. Asigna credenciales: Google Drive, Postgres (Supabase) y Google Gemini (API key).\n3. En 'Embeddings Google Gemini' verifica el modelo en el desplegable.\n4. 'Preparar Tabla Vectorial' crea la tabla y la VACIA en cada ejecucion (recarga completa).\n5. Tras la primera carga: revisa la dimension con vector_dims() y crea el indice si aplica.",
+        "height": 300,
+        "width": 480,
+        "color": 5
+      },
+      "id": "0e1cacfa-02d3-46c5-96e8-0d5b104a9d4f",
+      "name": "Notas de Configuración",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7d0f6075-2312-4605-8cab-8abef0277745",
+      "name": "Ejecutar Manualmente",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "34eb2251-7390-4f96-8977-c6130f18f89e",
+      "name": "Programado (Semanal Lunes 6am)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE EXTENSION IF NOT EXISTS vector SCHEMA public;\nCREATE EXTENSION IF NOT EXISTS pgcrypto;\n\nCREATE TABLE IF NOT EXISTS unab.documentos_vectoriales (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n  content text,\n  metadata jsonb,\n  embedding public.vector\n);\n\nCREATE INDEX IF NOT EXISTS idx_docvec_metadata\n  ON unab.documentos_vectoriales USING gin (metadata);\n\n-- Recarga completa: evita duplicados al re-ejecutar el flujo\nTRUNCATE TABLE unab.documentos_vectoriales;",
+        "options": {}
+      },
+      "id": "4a6f8b6a-337e-4b3a-9378-0840ae861c92",
+      "name": "Preparar Tabla Vectorial",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        224,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "",
+            "mode": "list"
+          }
+        },
+        "options": {}
+      },
+      "id": "7f560e83-b458-4b0c-ada3-ff5fab355e86",
+      "name": "Get files from folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        432,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-mimetype-soportado",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": ".*\\.md$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "358bf129-3ec9-425c-9a6b-152d8f75b638",
+      "name": "Filtrar Solo Markdown (.md)",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        656,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "id": "d6939c08-d14c-4686-9948-215cc5b75677",
+      "name": "Descargar Archivo Markdown",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": "unab.documentos_vectoriales",
+        "options": {
+          "columnNames": {
+            "values": {
+              "contentColumnName": "content"
+            }
+          }
+        }
+      },
+      "id": "990c38d0-6c09-4c8c-bf7f-59feafa28495",
+      "name": "Postgres PGVector Store",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "fuente",
+                "value": "={{ $('Descargar Archivo Markdown').item.json.name }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "90fb6b4f-6922-498b-bafb-e9f2f2c5de54",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "id": "edadef5a-d41d-46fd-bd8c-25e9a7259172",
+      "name": "Recursive Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "id": "c5b120eb-de93-4b25-a151-20e9d8313556",
+      "name": "Embeddings Google Gemini",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        960,
+        752
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Ejecutar Manualmente": {
+      "main": [
+        [
+          {
+            "node": "Preparar Tabla Vectorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Programado (Semanal Lunes 6am)": {
+      "main": [
+        [
+          {
+            "node": "Preparar Tabla Vectorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Tabla Vectorial": {
+      "main": [
+        [
+          {
+            "node": "Get files from folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get files from folder": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Solo Markdown (.md)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Solo Markdown (.md)": {
+      "main": [
+        [
+          {
+            "node": "Descargar Archivo Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Archivo Markdown": {
+      "main": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "nodeGroups": [],
+  "tags": []
+}
