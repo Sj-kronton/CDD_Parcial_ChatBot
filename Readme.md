@@ -243,5 +243,5 @@ npx expo start
 
 ---
 
-## Autores y Contexto Académico
-Proyecto desarrollado para la asignatura de **Ciencia de Datos** — Programa de **Ingeniería de Sistemas**, **Universidad Autónoma de Bucaramanga (UNAB)**.
+## Contexto Académico
+**Universidad Autónoma de Bucaramanga (UNAB)**.
