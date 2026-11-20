@@ -33,39 +33,12 @@ type ChatMessage = {
   text: string;
 };
 
-function extractAssistantText(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    const text = value.trim();
-    return text || undefined;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const text = extractAssistantText(item);
-      if (text) return text;
-    }
-    return undefined;
-  }
-
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    for (const key of [
-      'output',
-      'response',
-      'answer',
-      'text',
-      'message',
-      'content',
-    ]) {
-      if (key in record) {
-        const text = extractAssistantText(record[key]);
-        if (text) return text;
-      }
-    }
-  }
-
-  return undefined;
-}
+type WebhookPayload = {
+  respuesta?: string;
+  output?: string;
+  text?: string;
+  message?: string;
+};
 
 function createSessionId(studentId: string) {
   return `${studentId}_${Date.now()}`;
@@ -128,25 +101,21 @@ export default function ChatScreen() {
         }),
       });
 
-      const responseBody = await response.text();
       if (!response.ok) {
         throw new Error(
           `El servicio de chat respondió con el estado ${response.status}.`,
         );
       }
-      if (!responseBody.trim()) {
-        throw new Error('El servicio de chat respondió sin contenido.');
-      }
 
-      let payload: unknown = responseBody;
-      try {
-        payload = JSON.parse(responseBody);
-      } catch {
-        payload = responseBody;
-      }
+      const data: WebhookPayload | WebhookPayload[] = await response.json();
+      const payload = Array.isArray(data) ? data[0] : data;
+      const textoRespuesta =
+        payload?.respuesta ||
+        payload?.output ||
+        payload?.text ||
+        payload?.message;
 
-      const answer = extractAssistantText(payload);
-      if (!answer) {
+      if (!textoRespuesta?.trim()) {
         throw new Error(
           'El servicio respondió, pero no se encontró un mensaje de texto.',
         );
@@ -154,7 +123,11 @@ export default function ChatScreen() {
 
       setMessages((current) => [
         ...current,
-        { id: `assistant-${Date.now()}`, role: 'assistant', text: answer },
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          text: textoRespuesta,
+        },
       ]);
     } catch (error) {
       const errorText =
