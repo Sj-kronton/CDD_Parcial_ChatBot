@@ -254,6 +254,7 @@ Para la visualizacion concreta de algunos momentos de el proceso de desarrollo, 
 **Conversacion de prueba**
 <img width="720" height="1600" alt="E21_ConsultasAcademicas" src="https://github.com/user-attachments/assets/628ac6f2-a768-44e8-8d80-ef2f2f8de8cb" />
 
+Si bien responde intentando calmar la situacion ante un insulto, frente a una peticion de chiste o comentario informal se responde buscando mantener la formalidad
 
 ## Contexto Académico
 **Universidad Autónoma de Bucaramanga (UNAB)**.
